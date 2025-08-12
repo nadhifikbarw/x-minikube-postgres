@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: x-minikube-postgres
+spec:
+  # Use one replica set
+  replicas: 1
+  # Recognize pod with this label
+  # as part of deployment
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:17
+          volumeMounts:
+            - mountPath: /var/lib/postgresql/17/docker
+              name: pgdata
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "500m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+          # Load configuration from config map
+          envFrom:
+            - configMapRef:
+                name: postgres-credentials
+          # Inject POSTGRES_PASSWORD using secret
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: password
+          ports:
+            - containerPort: 5432
+      #
+      volumes:
+        - name: pgdata
+          persistentVolumeClaim:
+            claimName: postgres-pvc

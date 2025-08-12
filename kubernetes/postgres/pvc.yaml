@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: x-minikube-postgres
+spec:
+  # Tell controller that this PVC must be bind with PV that belongs in "manual" StorageClass
+  #
+  # The existence of "manual" `StorageClass` resource iteself is not necessary
+  # as long as the PV that specify "manual" in its `storageClassName` also exists
+  # this PVC will be bind using PV that match all requested criteria
+  #
+  # Reference
+  #
+  # From: https://kubernetes.io/docs/concepts/storage/persistent-volumes/#class-1
+  # A claim can request a particular class by specifying the name of a StorageClass
+  # using the attribute "storageClassName". Only PVs with the same "storageClassName" as the PVC
+  # can be bound to the PVC.
+  #
+  # PVCs don't necessarily have to request a class.
+  # A PVC with its "storageClassName" set equal to "" is always interpreted to be requesting
+  # a PV with no class so it can only be bound to PVs with no class (CAN BE NO ANNOTATIONS or one set equal to "")
+  #
+  # HOWEVER, PVC with no "storageClassName" is not quite the same and is treated differently by the cluster
+  # depending on whether the DefaultStorageClass admission plugin is turned on. If default StorageClass is set,
+  # PVC with no "storageClassName" will use dynamic provisioning instead. See docs for detailed behaviors
+  #
+  # In this case we're using statically provisioned PV
+  storageClassName: manual
+  resources:
+    requests:
+      storage: 1.5Gi
+  # Remember Kubernetes uses volume access modes to match PersistentVolumeClaims and PersistentVolumes
+  # This access mode match relevant ../pv.yaml configuration
+  accessModes:
+    - ReadWriteOnce

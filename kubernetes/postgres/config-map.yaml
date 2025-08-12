@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-credentials
+  namespace: x-minikube-postgres
+# Describe environment variables attached
+# to the `postgres` container
+data:
+  POSTGRES_DB: app
+  POSTGRES_USER: postgres
+  PGDATA: /var/lib/postgresql/17/docker

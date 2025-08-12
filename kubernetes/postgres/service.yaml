@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  # Expose as postgres-svc
+  name: postgres-svc
+  namespace: x-minikube-postgres
+  labels:
+    app: postgres-svc
+spec:
+  type: NodePort
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
