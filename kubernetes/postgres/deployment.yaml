@@ -20,7 +20,7 @@ spec:
         - name: postgres
           image: postgres:17
           volumeMounts:
-            - mountPath: /var/lib/postgresql/17/docker
+            - mountPath: /var/lib/postgresql
               name: pgdata
           resources:
             requests:
