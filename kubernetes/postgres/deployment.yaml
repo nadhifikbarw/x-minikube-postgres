@@ -42,7 +42,6 @@ spec:
                   key: password
           ports:
             - containerPort: 5432
-      #
       volumes:
         - name: pgdata
           persistentVolumeClaim:

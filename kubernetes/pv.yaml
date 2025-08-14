@@ -3,43 +3,69 @@ kind: PersistentVolume
 metadata:
   name: local-x-minikube-postgres
 spec:
-  # Tell controller that this PV belongs to the "manual" StorageClass
-  # The existence of "manual" `StorageClass` resource in itself is not
-  # necessary, as long as the subsequent PVC also specify "manual"
-  # on its `storageClassName` configuration so it will be bind with
-  # this PV
+  # Specify that this PV belongs to the "manual" StorageClass.
   #
-  # Reference
+  # Despite called `storageClassName`, k8s doesn't actually need you
+  # to explicitly create this `StorageClass` resource beforehand.
   #
-  # From: https://kubernetes.io/docs/concepts/storage/persistent-volumes/#class-1
-  # A claim can request a particular class by specifying the name of a StorageClass
-  # using the attribute "storageClassName". Only PVs with the same "storageClassName" as the PVC
-  # can be bound to the PVC.
+  # You just need to make sure that PVC manifest for this PV also uses
+  # specify "manual" on its `storageClassName` configuration in order
+  # to be bind accordingly
+  #
+  # Docs link about this: https://kubernetes.io/docs/concepts/storage/persistent-volumes/#class-1
+  #
+  # Here's slightly highlighted section about this:
+  #
+  # A claim can request a particular class by specifying the name of a
+  # StorageClass using the attribute "storageClassName". Only PVs with the same
+  # "storageClassName" as the PVC can be bound to the PVC.
   #
   # PVCs don't necessarily have to request a class.
   # A PVC with its "storageClassName" set equal to "" is always interpreted
   # to be requesting a PV with no class so it can only be bound to
   # PVs with no class (CAN BE NO ANNOTATIONS or one set equal to "")
   #
-  # HOWEVER, PVC with no "storageClassName" is not quite the same and is treated differently by the cluster
-  # depending on whether the DefaultStorageClass admission plugin is turned on.  if default StorageClass is set
-  # PVC with no "storageClassName" will use dynamic provisioning instead. See docs for detailed behaviors
+  # HOWEVER, PVC with no "storageClassName" is not quite the same and is treated
+  # differently by the cluster depending on whether the DefaultStorageClass
+  # admission plugin is turned on. If default StorageClass is set
+  # PVC with no "storageClassName" will use dynamic provisioning instead.
+  #
+  # See docs for more information. Configuration about dynamic provisioning
+  # and StorageClass beyond this is out of scope for this example.
   storageClassName: manual
   capacity:
     storage: 2Gi
-  # Remember Kubernetes uses volume access modes to match PersistentVolumeClaims and PersistentVolumes
-  # So likely you need to match this configuration with your PVC
+  # Kubernetes also match PV and PVC based on these access modes
   #
-  # the volume can be mounted as read-write by a single node.
+  # So your PVC configuration need to overlap with configuration
+  #
+  # ReadWriteOnce means the volume can be mounted as read-write by a single node.
+  #
   # ReadWriteOnce access mode still can allow multiple pods to access
-  # (read from or write to) that volume when the pods are running on the same node.
+  # (read from or write to) that volume when the pods are running on
+  # the same node.
   accessModes:
     - ReadWriteOnce
-  # Minikube-specific
+  # `hostPath` is the backend for this PV, it uses host node's filesystem.
+  # This backend is mainly used for testing purpose on single-node cluster. Since
+  # you have no guarantee which node will be used for this PV, hence it's
+  # not "possible" to use this backend for multi-node cluster without
+  #  unusual data syncing mechanism across nodes in place.
+  #
+  # The value of this hostPath is Minikube-specific
   # https://minikube.sigs.k8s.io/docs/handbook/persistent_volumes/
-  # minikube supports PersistentVolumes of type hostPath out of the box
-  # Data stored in "/data/*"" path will be persisted upon Minikube cluster restarts
+  #
+  # `minikube`` supports PersistentVolumes of type hostPath out of the box
+  # Data stored in "/data/*" path will be persisted on
+  # cluster restarts
   hostPath:
+    # DirectoryOrCreate:
+    #
+    # If nothing exists at the given path, an empty directory will be created
+    # there as needed with permission set to 0755, having the same group and
+    # ownership with Kubelet.
+    type: DirectoryOrCreate
     path: /data/pv-x-minikube-postgres
-  # For production configuration you likely want to consult `csi`
-  # and consult
+  # For realistic production configuration you likely want to use
+  # `csi`/`nfs`-typed backend that provide remote data persistence, backed by
+  # something like Rook Ceph, Rancher Longhorn, or AWS EBS.
