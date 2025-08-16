@@ -1,31 +1,37 @@
-# Postgres 17 in Kubernetes
+# PV-PVC Abstraction in Kubernetes
 
-Application-developer-oriented reference to deploy Postgres 17 in Kubernetes.
+Exploring K8s PV-PVC abstraction and organizational concerns from
+developer perspective by deploying Postgres v17 in k8s cluster.
 
-- Setup `Deployment` with 1 replica to focus on the topic of `Volume`.
+- Deploy 1 replica of postgres using `Deployment` focus on the topic of `Volume`
+  and skip scope creep around `StatefulSet` related to stateful replication.
 - Setup `PersistentVolume` using `hostPath` backend, thoroughly explaining
   typical considerations related to PV provisioning and the subsequent PVC
   binding.
 
 > Some parts of this config is tailored for local `Minikube`-consideration, but
-> the generic ideas applies, production considerations will be mentioned
+> the generic ideas applies, production considerations will also be mentioned
 > when appropriate.
 
 This write-up serves as intro and exploration behind K8s `Volume` and storage
-abstractions that handles data persistence when deploying stateful service.
-_Without_ glossing over the organizational aspects that should be considered
-around `PersistentVolume` lifecycle.
+abstractions that ensure data persistence when deploying stateful service.
+**_Without_** glossing over organizational aspects and how the configuration and
+maintenance of `PersistentVolume` lifecycle from operation concern affect
+development cycle or responsibilities.
 
 ---
 
 Postgres is a database, deployment of stateful service in Kubernetes always come
-with extra sets of care that need to considered compared to stateless services.
+with extra sets of care that need to considered compared to stateless service.
 
-Managing production cluster with stateful deployments can be complex, that's why
-it's not uncommon to see Kubernetes Operator (such as: `Strimzi`,
-`CockroachDB Operator`, `Prometheus Operator`) being offered to simplify
-management of stateful deployment in production. But now let's open one part of
-the trunk and see what's under the hood a little bit.
+Managing cluster with stateful deployments in production can be complex, that's
+why it's not uncommon to see Kubernetes Operator (such as: `Strimzi`,
+`CockroachDB Operator`, `Prometheus Operator`) being used to simplify
+management of stateful deployment for specific product in production.
+
+Let's open the trunk and see one aspect under the hood to gain little bit of
+insight around `Volume` that this Operators help simplify when deploying stateful
+application.
 
 ## Handling data persistence using `Volume`
 
@@ -37,8 +43,7 @@ app's data persistence. On top of that, a `Volume` can also be used as
 file-sharing mechanism between containers within a Pod.
 
 The backend of a `Volume`, [often referred as "Volume type"](https://kubernetes.io/docs/concepts/storage/volumes/#volume-types),
-can vary greatly.
-A volume backend doesn't have to be a typical disk/filesystem-like.
+can vary greatly. A volume backend doesn't have to be a typical disk or filesystem-like.
 In fact, it's not uncommon to use other Kubernetes resources
 (such as: `ConfigMap`/`Secret`) to be mounted as Volume in a container.
 There are also several other unique backend, [`emptyDir` being one of them](https://kubernetes.io/docs/concepts/storage/volumes/#emptydir),
@@ -111,21 +116,26 @@ preemptively setup `PersistentVolume`(s) in organization cluster way before
 application developer need to perform deployment.
 
 This is due to the nature of `PersistentVolume` lifecycle management, many
-decisions can be quite complex, and influenced by operational cost ($):
+decisions can be quite complex, and influenced by operational costs ($):
 
 - Whether your cluster supports automatic/dynamic PV provisioning based on PVC
   or strictly static (meaning each PV need to be setup manually before being claimed)
 - Various degree of storage backend and quality of service that your
   organization need to support
+- How to perform backups and snapshotting for these volumes?
 
-Taking the scenario further, to support mission-critical aspect,
-k8s cluster should likely choose remote persistent storage backend that can
-withstand cluster/node(s) crashes.
+Taking the production scenario further, to support mission-critical deployments,
+k8s cluster should likely use remote persistent storage backend that can
+withstand node(s)/entire cluster crashes, while taking care additional concerns
+such as security, backups, snapshotting and more.
 
-Considering and weighing options such as: AWS EBS, rolling out their own
-Longhorn/Rook, etc. As you can see these decisions can be quite complex and
-nuanced, but ideally should be made irrelevant to application developer due to
-the abstraction that `PersistentVolumeClaim` provides.
+Cluster admin may weigh and consider options such as: AWS EBS, rolling out
+their own Longhorn/Rook-CEPH, etc.
+
+As you can see these decisions can be quite complex and nuanced, and setting up
+production for these configuration can take awhile too. All these concern ideally
+should be irrelevant to application developer due to the abstraction
+that `PersistentVolumeClaim` provides.
 
 Once organization decided on these type of decisions for their cluster,
 the "claiming" workflow will only be partially influenced by these decisions.
@@ -135,7 +145,7 @@ the "claiming" workflow will only be partially influenced by these decisions.
 Assuming `PersistentVolume`s are ready, responsible author of
 `PersistentVolumeClaim` can theoretically be isolated and focus on requesting
 resource that their app needs, detached from the decisions whether such storage
-is powered by AWS EBS, Rook, or else.
+is powered by AWS EBS, Rook-CEPH, or else.
 
 If everything is configured accordingly, the correct `PersistentVolume` will be
 bind to fulfill the appropriate `PersistentVolumeClaim`.
@@ -144,7 +154,12 @@ In case of organization that uses dynamic provisioning, PV will be provisioned
 automatically based on appropriate `StorageClass` that's declared in each
 `PersistentVolumeClaim`, thus application developer in an organization must be
 onboarded of this configuration. If a PV was dynamically provisioned for a new
-PVC, the provisioned PV will always be bind to that PVC
+PVC, the provisioned PV will always be bind to that PVC.
+
+The responsibilities of authoring manifest such as `PersistentVolumeClaim`
+depends on various aspects specific to such organization. Some organization
+adopts ["you build it, you run it" principle](https://www.thoughtworks.com/insights/decoder/y/you-build-it-you-run-it)
+some isolates operational vs development teams.
 
 **A PVC to PV binding is a one-to-one mapping**
 
